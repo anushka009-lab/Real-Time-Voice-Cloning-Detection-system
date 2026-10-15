@@ -114,6 +114,43 @@ class TestVoiceIntegrity(unittest.TestCase):
         res = self.risk_engine.process_chunk(chunk)
         self.assertLess(res.latency_ms, 50.0)
 
+    def test_blockchain_merkle_tree_integrity(self):
+        """Verify Merkle tree construction, proof generation, and tamper detection."""
+        from voice_integrity.ledger import MerkleTree, CallSessionLedger, sha256_hash
+        
+        leaves = [sha256_hash(f"frame_log_{i}") for i in range(8)]
+        tree = MerkleTree(leaves)
+        self.assertTrue(tree.root.startswith("0x"))
+        self.assertEqual(len(tree.root), 66)  # '0x' + 64 hex chars
+        
+        # Test valid proof for leaf 0 and leaf 5
+        for idx in [0, 5]:
+            proof = tree.get_proof(idx)
+            is_valid = MerkleTree.verify_proof(leaves[idx], proof, tree.root)
+            self.assertTrue(is_valid)
+
+        # Test tamper detection: modified leaf MUST fail verification
+        tampered_leaf = sha256_hash("tampered_modified_frame_log")
+        tamper_check = MerkleTree.verify_proof(tampered_leaf, tree.get_proof(0), tree.root)
+        self.assertFalse(tamper_check)
+
+    def test_call_session_ledger_sealing(self):
+        """Verify call session ledger seals frames into on-chain receipt."""
+        from voice_integrity.ledger import CallSessionLedger
+        ledger = CallSessionLedger()
+        
+        chunk = np.random.normal(0, 0.1, size=4000).astype(np.float32)
+        res = self.risk_engine.process_chunk(chunk)
+        
+        # Record 4 frames
+        for _ in range(4):
+            ledger.record_frame(res, chunk, caller_id="+91-98765-43210")
+            
+        receipt = ledger.seal_session(res, caller_id="+91-98765-43210")
+        self.assertEqual(receipt.total_frames_analyzed, 4)
+        self.assertTrue(receipt.merkle_root.startswith("0x"))
+        self.assertTrue(receipt.on_chain_tx_hash.startswith("0x"))
+
 
 if __name__ == "__main__":
     unittest.main()

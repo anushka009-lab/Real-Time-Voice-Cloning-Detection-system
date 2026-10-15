@@ -9,46 +9,36 @@
 
 ---
 
-## 📌 Executive Summary & Architecture
+## 📌 4-Tier High-Level Architecture
 
 ```
-                       [ Incoming Telephony / VoIP Audio Stream ]
-                                         │
-                    ┌────────────────────┴────────────────────┐
-                    ▼                                         ▼
-         [ Layer 1: Spectral & DSP ]               [ Layer 2: Biomechanical Prosody ]
-         • 20-dim LFCC Filterbank                  • Sub-sample NCCF Pitch Tracker (F0)
-         • Bispectrum Quadratic Phase Coupling     • Jitter: Local, RAP, PPQ5 Perturbations
-         • Transposed Conv Checkerboard Index      • Shimmer: Local, dB, APQ3, APQ5 Metrics
-         • Spectral Flatness & HF Cutoff           • HNR & Pitch Variation Dynamics
-                    │                                         │
-                    └────────────────────┬────────────────────┘
-                                         ▼
-                           [ Layer 3: Neural Vocoder ]
-                           • Levinson-Durbin LPC Residual Kurtosis
-                           • Sub-band Transposed Conv Periodicity
-                           • High-Frequency Phase Dispersion
-                                         │
-                                         ▼
-                           [ Layer 4: Voice Biometrics ]
-                           • 56-dim Acoustic Identity Vector
-                           • Cosine Similarity vs Enrolled Profile
-                                         │
-                                         ▼
-                    ┌─────────────────────────────────────────┐
-                    │  Real-Time Risk Scoring Engine (EMA)    │
-                    │  • Multi-Layer Corroboration Synergy    │
-                    │  • Dynamic Risk Probability (0 - 100%)  │
-                    │  • Explainable Forensic Cue Generator   │
-                    └────────────────────┬────────────────────┘
-                                         │
-                   ┌─────────────────────┴─────────────────────┐
-                   ▼                                           ▼
-      [ Cumulative Score < 35% ]                  [ Cumulative Score >= 70% ]
-           AUTHENTIC_HUMAN                             CRITICAL_CLONE
-                   │                                           │
-         PROCEED_NORMAL Action                       FREEZE_TRANSACTION Action
-      (Call continues normally)              (Out-of-Band Push MFA + Callback Trigger)
+┌────────────────────────────────────────────────────────────────────────┐
+│  1. Audio Capture Layer (WebRTC / SIP Gateway)                         │
+│     • Intercepts raw audio stream from active calls (VoIP, WebRTC)     │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────┐
+│  2. Streaming Frame Buffer                                             │
+│     • Continuous sliding window (250ms chunks, 1.0s context window)    │
+│     • Zero audio retention: raw PCM discarded after DSP extraction     │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────┐
+│  3. AI Voice Detector & Real-Time Risk Engine                          │
+│     • Acoustic & Spectral (LFCC, Bispectrum Quadratic Phase Coupling)  │
+│     • Prosody & Biomechanics (F0, Cycle-to-cycle Jitter, Shimmer, HNR) │
+│     • Neural Vocoder (Levinson-Durbin LPC Kurtosis, Checkerboard)      │
+│     • Biometrics (56-dim acoustic identity vector vs enrolled profile) │
+│     • Real-time risk probability & automated banking action triggers   │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────┐
+│  4. Ledger / Blockchain Layer (EVM Smart Contract)                     │
+│     • Computes Merkle Trees over frame verification logs               │
+│     • Anchors 32-byte Merkle Roots to EVM smart contract at intervals  │
+│     • Produces tamper-evident audit receipts for compliance/regulators │
+│     • Smart Contract: contracts/VoiceIntegrityLedger.sol               │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---

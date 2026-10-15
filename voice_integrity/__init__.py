@@ -25,8 +25,13 @@ from voice_integrity.models.risk_engine import (
     FrameEvaluationResult,
     ForensicEvidence,
 )
+from voice_integrity.ledger import (
+    MerkleTree,
+    CallSessionLedger,
+    CallAuditReceipt,
+)
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "load_wav",
@@ -46,4 +51,7 @@ __all__ = [
     "RecommendedAction",
     "FrameEvaluationResult",
     "ForensicEvidence",
+    "MerkleTree",
+    "CallSessionLedger",
+    "CallAuditReceipt",
 ]

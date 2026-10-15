@@ -75,6 +75,10 @@ def run_streaming_simulation(
     start_sim_time = 0.0
     final_res = None
 
+    # Initialize Blockchain Ledger for this call session
+    from voice_integrity.ledger import CallSessionLedger, MerkleTree
+    session_ledger = CallSessionLedger()
+
     for start in range(0, n_total - chunk_samples + 1, chunk_samples):
         chunk = audio[start : start + chunk_samples]
         res = engine.process_chunk(
@@ -85,6 +89,9 @@ def run_streaming_simulation(
         )
         final_res = res
         start_sim_time += chunk_ms / 1000.0
+
+        # Record frame in Cryptographic Ledger
+        session_ledger.record_frame(res, chunk, caller_id=caller_id)
 
         bar = format_risk_bar(res.rolling_risk_score, width=20)
         
@@ -99,6 +106,12 @@ def run_streaming_simulation(
         cue = res.top_forensic_cues[0].metric_name if res.top_forensic_cues else "None (Nominal)"
         print(f"{start_sim_time:5.2f}s | {bar} | {level_str:^24} | {res.latency_ms:6.2f}ms | {cue}")
 
+    # Seal Call Session into Merkle Tree & Anchor to Blockchain Ledger
+    receipt = session_ledger.seal_session(final_res, caller_id=caller_id)
+    safe_name = "".join(c if c.isalnum() else "_" for c in scenario_title).lower().strip("_")
+    receipt_filename = f"audit_receipt_{safe_name[:24]}.json"
+    session_ledger.export_receipt_json(receipt, receipt_filename)
+
     # Summary of final decision
     print("-" * 78)
     print(f"\033[1mFINAL CALL EVALUATION:\033[0m")
@@ -110,6 +123,19 @@ def run_streaming_simulation(
         print(f"  • Forensic Breakdown:")
         for c in final_res.top_forensic_cues:
             print(f"      - {c.metric_name}: observed={c.observed_value} (expected: {c.typical_human_range}) -> {c.anomaly_description}")
+
+    print("\n\033[1;36m[LEDGER / BLOCKCHAIN ANCHORING LAYER]\033[0m")
+    print(f"  • Call Session ID:          {receipt.call_session_id}")
+    print(f"  • Total Frames Sealed:      {receipt.total_frames_analyzed} (250ms chunks)")
+    print(f"  • Merkle Root Hash:         \033[1;32m{receipt.merkle_root}\033[0m")
+    print(f"  • Smart Contract Address:   {receipt.contract_address}")
+    print(f"  • EVM Simulated Tx Hash:    \033[1;33m{receipt.on_chain_tx_hash}\033[0m")
+
+    # Verify Merkle proof for Frame 0
+    if receipt.sample_proof_frame_0:
+        f0_valid = MerkleTree.verify_proof(receipt.leaf_hashes[0], receipt.sample_proof_frame_0, receipt.merkle_root)
+        print(f"  • Cryptographic Proof (Frame #0): \033[1;32m{'VERIFIED VALID' if f0_valid else 'FAILED'}\033[0m (Tamper-evident)")
+    print(f"  • Audit Receipt Exported:   {receipt_filename}")
             
     if final_res.risk_level == RiskLevel.CRITICAL_CLONE:
         if final_res.recommended_action == RecommendedAction.FREEZE_TRANSACTION:

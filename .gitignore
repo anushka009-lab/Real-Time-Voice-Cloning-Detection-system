@@ -41,6 +41,9 @@ venv.bak/
 *.swp
 *.swo
 
+# Live Audit Receipts
+audit_receipt_*.json
+
 # OS files
 .DS_Store
 Thumbs.db
